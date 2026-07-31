@@ -1,19 +1,63 @@
-# Database initialization script specific to local environment
-scripts/init-db.sql.bak
-scripts/*.sql~
-
-# If there are temporary files created during DB init
-*.tmp
-*.log
-
-# Environment-specific database configs
-.env.db
+```
+# Environment files
 .env.local
+.env.*
 
-# IDE files
+# Dependencies
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv/
+pip-log.txt
+pip-delete-this-directory.txt
+.tox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.log
+local_settings.py
+db.sqlite3
+db.sqlite3-journal
+
+# Testing
+.pytest_cache/
+.hypothesis/
+
+# IDE
 .vscode/
 .idea/
-
-# OS files
+*.swp
+*.swo
+*~
 .DS_Store
 Thumbs.db
+
+# Build and distribution
+dist/
+build/
+*.egg-info/
+.eggs/
+.installed.cfg
+*.egg
+
+# Logs
+*.log
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+iTunes_Control/
+Thumbs.db
+Windows/
+```
