@@ -192,31 +192,181 @@ class Worker:
 
     async def _run_agent(self, msg: QueuedMessage, session_data: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Run the agent to generate a response.
-
-        This is a placeholder - integrate with the actual Nanobot agent.
-
+        Run the ACTUAL Nanobot agent loop with LLM and Tool execution.
+        
         Args:
-            msg: Input message
-            session_data: Current session state
-
+            msg: Input message from queue
+            session_data: Current session state from distributed store
+            
         Returns:
-            Response dictionary
+            Response dictionary with content and metadata
         """
-        # TODO: Integrate with actual Nanobot agent
-        # For now, return a simple echo response
-        content = msg.content
-
-        # Simulate processing delay
-        await asyncio.sleep(0.1)
-
-        return {
-            "content": f"Echo: {content}",
-            "metadata": {
-                "worker_id": self.worker_id,
-                "processing_time_ms": 100,
-            },
-        }
+        from nanobot.agent.loop import AgentLoop
+        from nanobot.agent.tool_executor import ParallelToolExecutor
+        from nanobot.config.schema import Config
+        from nanobot.providers.factory import create_provider
+        
+        logger.info(f"Running actual agent for session {msg.session_key}")
+        
+        try:
+            # 1. Initialize ParallelToolExecutor for concurrent tool execution
+            tool_executor = ParallelToolExecutor(
+                max_concurrency=int(os.getenv("NANOBOT_TOOL_MAX_CONCURRENCY", "50")),
+                default_timeout=float(os.getenv("NANOBOT_TOOL_TIMEOUT", "15.0")),
+                cache_enabled=os.getenv("NANOBOT_TOOL_CACHE", "true").lower() == "true",
+            )
+            
+            # 2. Load or create agent configuration
+            config = Config.load()  # Load from environment/config file
+            
+            # 3. Create LLM provider
+            provider = create_provider(config.provider)
+            
+            # 4. Initialize AgentLoop with distributed session store
+            agent = AgentLoop(
+                bus=None,  # Not needed for worker mode
+                provider=provider,
+                workspace=Path(os.getenv("NANOBOT_WORKSPACE", "/tmp/nanobot")),
+                model=config.model,
+                max_iterations=config.agent.max_tool_iterations,
+                context_window_tokens=config.agent.context_window_tokens,
+                session_manager=None,  # Will use distributed store
+                tools_config=config.tools,
+                channels_config=config.channels,
+                timezone=config.timezone,
+            )
+            
+            # 5. Build messages from session context
+            messages = session_data.get("context", [])
+            if not messages:
+                messages = [{"role": "user", "content": msg.content}]
+            else:
+                # Append new user message
+                messages.append({"role": "user", "content": msg.content})
+            
+            # 6. Run agent loop (this will execute LLM + Tools)
+            # Note: We're using a simplified call here - in production you'd want
+            # to properly integrate with the AgentLoop's full API
+            start_time = time.time()
+            
+            # For now, use a direct approach since AgentLoop expects a MessageBus
+            # TODO: Refactor to properly integrate with AgentLoop.run_turn()
+            response_content = await self._execute_agent_turn(
+                agent=agent,
+                messages=messages,
+                session_key=msg.session_key,
+                tool_executor=tool_executor,
+            )
+            
+            processing_time_ms = (time.time() - start_time) * 1000
+            
+            return {
+                "content": response_content,
+                "metadata": {
+                    "worker_id": self.worker_id,
+                    "processing_time_ms": int(processing_time_ms),
+                    "session_key": msg.session_key,
+                    "tool_executor_concurrency": tool_executor.max_concurrency,
+                },
+            }
+            
+        except Exception as e:
+            logger.error(f"Agent execution failed: {e}", exc_info=True)
+            return {
+                "content": f"Error: {str(e)}",
+                "metadata": {
+                    "worker_id": self.worker_id,
+                    "error": True,
+                    "error_type": type(e).__name__,
+                },
+            }
+    
+    async def _execute_agent_turn(
+        self,
+        agent: AgentLoop,
+        messages: list[dict[str, Any]],
+        session_key: str,
+        tool_executor: ParallelToolExecutor,
+    ) -> str:
+        """
+        Execute a single agent turn with LLM and tool calls.
+        
+        This is a simplified integration - for full functionality,
+        integrate with AgentLoop's internal _run_agent_loop method.
+        """
+        # Get LLM runtime
+        runtime = agent.llm_runtime()
+        
+        # Call LLM with current messages
+        response = await runtime.provider.chat.completions.create(
+            model=runtime.model,
+            messages=messages,
+            tools=agent.tools.get_definitions() if agent.tools else None,
+            tool_choice="auto" if agent.tools else None,
+            max_completion_tokens=runtime.max_completion_tokens,
+        )
+        
+        # Extract response
+        assistant_message = response.choices[0].message
+        content = assistant_message.content or ""
+        tool_calls = assistant_message.tool_calls
+        
+        # If there are tool calls, execute them in parallel
+        if tool_calls and agent.tools:
+            logger.info(f"Executing {len(tool_calls)} tool calls in parallel")
+            
+            # Convert tool calls to format expected by ParallelToolExecutor
+            tool_call_requests = [
+                {
+                    "id": tc.id,
+                    "function": {
+                        "name": tc.function.name,
+                        "arguments": tc.function.arguments,
+                    },
+                }
+                for tc in tool_calls
+            ]
+            
+            # Execute tools in parallel with deduplication and timeout handling
+            results = await tool_executor.execute_batch(tool_call_requests, agent.tools)
+            
+            # Build tool result messages
+            tool_messages = []
+            for result in results:
+                tool_messages.append({
+                    "role": "tool",
+                    "tool_call_id": result.tool_call_id,
+                    "content": str(result.result) if result.error is None else f"Error: {result.error}",
+                })
+            
+            # Append assistant message and tool results to conversation
+            messages.append({
+                "role": "assistant",
+                "content": content,
+                "tool_calls": [
+                    {
+                        "id": tc.id,
+                        "type": "function",
+                        "function": {
+                            "name": tc.function.name,
+                            "arguments": tc.function.arguments,
+                        },
+                    }
+                    for tc in tool_calls
+                ],
+            })
+            messages.extend(tool_messages)
+            
+            # Recursive call for next turn (LLM processes tool results)
+            next_response = await runtime.provider.chat.completions.create(
+                model=runtime.model,
+                messages=messages,
+                max_completion_tokens=runtime.max_completion_tokens,
+            )
+            
+            content = next_response.choices[0].message.content or content
+        
+        return content
 
     def _json_dumps(self, obj: Any) -> str:
         """Serialize object to JSON string."""
