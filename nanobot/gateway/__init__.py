@@ -8,6 +8,7 @@ from nanobot.gateway.runtime import (
     RuntimeResult,
     build_gateway_command,
 )
+from nanobot.gateway.app import GatewayApp, gateway
 
 __all__ = [
     "GatewayRuntime",
@@ -16,4 +17,6 @@ __all__ = [
     "GatewayStatus",
     "RuntimeResult",
     "build_gateway_command",
+    "GatewayApp",
+    "gateway",
 ]

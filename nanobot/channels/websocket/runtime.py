@@ -117,6 +117,9 @@ class WebSocketConfig(Base):
     max_message_bytes: int = Field(default=37_748_736, ge=1024, le=41_943_040)
     ping_interval_s: float = Field(default=20.0, ge=5.0, le=300.0)
     ping_timeout_s: float = Field(default=20.0, ge=5.0, le=300.0)
+    # Scalability settings for high concurrent connections (1000+ users)
+    max_connections: int = Field(default=1000, ge=100, le=10000)
+    connection_timeout_s: float = Field(default=30.0, ge=5.0, le=300.0)
     ssl_certfile: str = ""
     ssl_keyfile: str = ""
 
@@ -276,6 +279,9 @@ class WebSocketChannel(BaseChannel):
         self._webui_connections: set[ServerConnection] = set()
         self._stop_event: asyncio.Event | None = None
         self._server_task: asyncio.Task[None] | None = None
+        # Connection tracking for scalability limits
+        self._connection_count = 0
+        self._connection_lock = asyncio.Lock()
 
         self.gateway = gateway
         self._http_router = gateway.http
@@ -482,7 +488,24 @@ class WebSocketChannel(BaseChannel):
             return await self._dispatch_http(connection, request)
 
         async def handler(connection: ServerConnection) -> None:
-            await self._connection_loop(connection)
+            # Check connection limit before processing
+            if not await self._accept_connection():
+                try:
+                    await connection.send(
+                        json.dumps({
+                            "event": "error",
+                            "detail": "Server at capacity. Please try again later."
+                        })
+                    )
+                    await connection.close(1013, "Server at capacity")
+                except Exception:
+                    pass
+                return
+            try:
+                await self._connection_loop(connection)
+            finally:
+                # Connection count is decremented in _connection_loop cleanup
+                pass
 
         self.logger.info(
             "WebSocket server listening on {}",
@@ -516,11 +539,13 @@ class WebSocketChannel(BaseChannel):
                     handler,
                     socket_path,
                     process_request=process_request,
-                    open_timeout=_WEBUI_HTTP_OPEN_TIMEOUT_S,
+                    open_timeout=self.config.connection_timeout_s,
                     max_size=self.config.max_message_bytes,
                     ping_interval=self.config.ping_interval_s,
                     ping_timeout=self.config.ping_timeout_s,
                     logger=ws_logger,
+                    # Scalability: support 1000+ concurrent connections
+                    max_connections=self.config.max_connections,
                 )
                 with suppress(OSError):
                     path_obj.chmod(0o600)
@@ -530,12 +555,14 @@ class WebSocketChannel(BaseChannel):
                     self.config.host,
                     self.config.port,
                     process_request=process_request,
-                    open_timeout=_WEBUI_HTTP_OPEN_TIMEOUT_S,
+                    open_timeout=self.config.connection_timeout_s,
                     max_size=self.config.max_message_bytes,
                     ping_interval=self.config.ping_interval_s,
                     ping_timeout=self.config.ping_timeout_s,
                     ssl=ssl_context,
                     logger=ws_logger,
+                    # Scalability: support 1000+ concurrent connections
+                    max_connections=self.config.max_connections,
                 )
             try:
                 assert self._stop_event is not None
@@ -610,6 +637,28 @@ class WebSocketChannel(BaseChannel):
             self.logger.debug("connection ended: {}", e)
         finally:
             self._cleanup_connection(connection)
+            # Decrement connection count on cleanup
+            async with self._connection_lock:
+                self._connection_count = max(0, self._connection_count - 1)
+
+    async def _accept_connection(self) -> bool:
+        """Check if we can accept a new connection based on max_connections limit."""
+        async with self._connection_lock:
+            if self._connection_count >= self.config.max_connections:
+                self.logger.warning(
+                    "Connection limit reached ({}/{}), rejecting new connection",
+                    self._connection_count,
+                    self.config.max_connections,
+                )
+                return False
+            self._connection_count += 1
+            self.logger.info(
+                "Accepted connection {}/{}, total active: {}",
+                self._connection_count,
+                self.config.max_connections,
+                self._connection_count,
+            )
+            return True
 
     # -- Inbound WebSocket envelopes ---------------------------------------
 

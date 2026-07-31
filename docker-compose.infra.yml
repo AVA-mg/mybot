@@ -1,0 +1,100 @@
+# Docker Compose Infrastructure for Nanobot
+# This file provides the foundational data infrastructure (Redis + PostgreSQL)
+# Required for all scalability phases
+
+services:
+  # PostgreSQL Database
+  # Provides persistent storage for sessions, history, and application data
+  postgres:
+    image: postgres:16-alpine
+    container_name: nanobot-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: nanobot
+      POSTGRES_USER: nanobot
+      POSTGRES_PASSWORD: ${PG_PASSWORD:-nanobot_secure_password_change_me}
+      POSTGRES_INITDB_ARGS: "-c shared_buffers=256MB -c max_connections=200"
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nanobot -d nanobot"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - nanobot-network
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+        reservations:
+          memory: 512M
+
+  # Redis Cache & Session Store
+  # Provides high-speed caching, session management, and distributed locks
+  redis:
+    image: redis:7-alpine
+    container_name: nanobot-redis
+    restart: unless-stopped
+    command: >
+      redis-server
+      --appendonly yes
+      --maxmemory 2gb
+      --maxmemory-policy allkeys-lru
+      --tcp-keepalive 300
+      --timeout 0
+    ports:
+      - "6379:6379"
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+    networks:
+      - nanobot-network
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+        reservations:
+          memory: 1G
+
+  # Redis Commander (Optional - for development/debugging)
+  # Web UI for Redis inspection
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: nanobot-redis-commander
+    restart: unless-stopped
+    environment:
+      REDIS_HOSTS: local:redis:6379
+      HTTP_PORT: 8081
+      PORT: 8081
+    ports:
+      - "8081:8081"
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - nanobot-network
+    profiles:
+      - dev
+
+networks:
+  nanobot-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.28.0.0/16
+
+volumes:
+  pgdata:
+    driver: local
+  redisdata:
+    driver: local
