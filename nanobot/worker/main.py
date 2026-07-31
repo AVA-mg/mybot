@@ -7,8 +7,10 @@ Designed to run as independent, stateless workers that can scale horizontally.
 
 import os
 import sys
+import time
 import asyncio
 import signal
+from pathlib import Path
 from typing import Dict, Any, Optional
 from datetime import datetime
 from redis.asyncio import Redis as AsyncRedis
@@ -283,10 +285,10 @@ class Worker:
     
     async def _execute_agent_turn(
         self,
-        agent: AgentLoop,
+        agent: Any,
         messages: list[dict[str, Any]],
         session_key: str,
-        tool_executor: ParallelToolExecutor,
+        tool_executor: Any,
     ) -> str:
         """
         Execute a single agent turn with LLM and tool calls.
@@ -328,7 +330,7 @@ class Worker:
             ]
             
             # Execute tools in parallel with deduplication and timeout handling
-            results = await tool_executor.execute_batch(tool_call_requests, agent.tools)
+            results = await tool_executor.execute_batch(tool_call_requests, agent.tools.execute)
             
             # Build tool result messages
             tool_messages = []

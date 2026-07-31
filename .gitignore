@@ -1,9 +1,5 @@
-```
-# Environment files
-.env.local
-.env.*
-
-# Dependencies
+```python
+# Python
 __pycache__/
 *.pyc
 *.pyo
@@ -22,33 +18,40 @@ nosetests.xml
 coverage.xml
 *.cover
 *.log
-local_settings.py
-db.sqlite3
-db.sqlite3-journal
-
-# Testing
+*.pot
+*.po
+*~
 .pytest_cache/
+.mypy_cache/
 .hypothesis/
 
-# IDE
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
-.DS_Store
-Thumbs.db
-
-# Build and distribution
-dist/
+# Distribution / packaging
+.Python
 build/
-*.egg-info/
+develop-eggs/
+dist/
+downloads/
+eggs/
 .eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
 .installed.cfg
 *.egg
+MANIFEST
 
-# Logs
-*.log
+# IDEs
+.vscode/
+.idea/
+
+# Environment
+.env
+.env.local
+.env.*
 
 # OS generated files
 .DS_Store
@@ -57,7 +60,5 @@ build/
 .Spotlight-V100
 .Trashes
 ehthumbs.db
-iTunes_Control/
 Thumbs.db
-Windows/
 ```
