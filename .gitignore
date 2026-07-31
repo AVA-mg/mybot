@@ -1,103 +1,108 @@
-# Project-specific
-.worktrees/
-.worktree/
-.assets
-.docs
-.env
-.web
-.orion
-
-# Claude / AI assistant artifacts
-docs/superpowers/
-docs/plans/
-
-# webui (monorepo frontend)
-webui/node_modules/
-webui/dist/
-webui/coverage/
-webui/.vite/
-*.tsbuildinfo
-
-# Python bytecode & caches
+```
+# Dependencies
+.venv/
+venv/
+__pycache__/
 *.pyc
 *.pyo
 *.pyd
-*.pyw
-*.pyz
-__pycache__/
-*.egg-info/
-*.egg
-.venv/
-venv/
-.pytest_cache/
-.mypy_cache/
-.ruff_cache/
-.pytype/
-.dmypy.json
-dmypy.json
+pip-log.txt
+pip-delete-this-directory.txt
 .tox/
-.nox/
-.hypothesis/
-
-# Build & packaging
-dist/
-build/
-*.manifest
-*.spec
-pip-wheel-metadata/
-share/python-wheels/
-
-# Test & coverage
 .coverage
 .coverage.*
-htmlcov/
+.cache
+nosetests.xml
 coverage.xml
 *.cover
+*.log
+*.pot
+*.pot~
+*.mo
+build/
+develop-eggs/
+.installed.cfg
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
 
-# Lock files (project policy)
-poetry.lock
-uv.lock
+# Environment variables
+.env
+.env.local
+.env.*
 
-# Jupyter
-.ipynb_checkpoints/
-
-# macOS
-.DS_Store
-.AppleDouble
-.LSOverride
-
-# Windows
-Thumbs.db
-ehthumbs.db
-Desktop.ini
-
-# Linux
-.directory
-
-# Editors & IDEs (local workspace / user settings)
+# IDE specific
 .vscode/
-.cursor/
 .idea/
-.fleet/
-*.code-workspace
-*.sublime-project
-*.sublime-workspace
 *.swp
 *.swo
 *~
-nano.*.save
 
-# Environment & secrets (keep examples tracked if needed)
-.env.*
-!.env.example
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
 
-# Logs & temp
+# Testing
+.pytest_cache/
+.mypy_cache/
+.hypothesis/
+
+# Distribution / packaging
+.Python
+__pycache__/
+*$py.class
+*$py.data
+**/__pycache__/
+**/*.py[co]
+**/$py.class
+**/*.so
+.Python
+.build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Coverage
+htmlcov/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
 *.log
-logs/
-tmp/
-temp/
-*.tmp
-exp/
-.playwright-mcp/
-bridge/node_modules/
-webui/.verify-*
+
+# Migrations
+*.sqlite3
+*.db
+
+# Docker
+.dockerenv
+
+# Alembic
+alembic/versions/*.pyc
+```

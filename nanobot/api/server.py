@@ -461,11 +461,24 @@ def create_app(
         request_timeout: Per-request timeout in seconds.
         api_key: Optional API key for Bearer-token authentication on API routes.
     """
-    app = web.Application(client_max_size=20 * 1024 * 1024)  # 20MB for base64 images
+    app = web.Application(
+        client_max_size=20 * 1024 * 1024,  # 20MB for base64 images
+        handler_args={
+            "max_field_size": 8192,
+            "max_line_size": 8192,
+        },
+    )
     app[_AGENT_LOOP_KEY] = agent_loop
     app[_MODEL_NAME_KEY] = model_name
     app[_REQUEST_TIMEOUT_KEY] = request_timeout
     app[_SESSION_LOCKS_KEY] = {}  # per-user locks, keyed by session_key
+    # Connection pool and concurrency settings for high load
+    app["metrics"] = {
+        "active_connections": 0,
+        "total_requests": 0,
+        "failed_requests": 0,
+        "avg_response_time_ms": 0.0,
+    }
 
     @web.middleware
     async def auth_middleware(
@@ -484,8 +497,40 @@ def create_app(
             return _error_json(401, "Invalid API key")
         return await handler(request)
 
-    app.middlewares.append(auth_middleware)
+    @web.middleware
+    async def metrics_middleware(
+        request: web.Request,
+        handler: Callable[[web.Request], Awaitable[web.StreamResponse]],
+    ) -> web.StreamResponse:
+        """Track request metrics for monitoring and scaling."""
+        import time
+        metrics = app["metrics"]
+        metrics["active_connections"] = metrics.get("active_connections", 0) + 1
+        start_time = time.time()
+        try:
+            response = await handler(request)
+            return response
+        except Exception as e:
+            metrics["failed_requests"] = metrics.get("failed_requests", 0) + 1
+            raise
+        finally:
+            elapsed_ms = (time.time() - start_time) * 1000
+            metrics["total_requests"] = metrics.get("total_requests", 0) + 1
+            metrics["active_connections"] = metrics.get("active_connections", 0) - 1
+            # Running average of response time
+            total = metrics.get("total_requests", 1)
+            prev_avg = metrics.get("avg_response_time_ms", 0.0)
+            metrics["avg_response_time_ms"] = prev_avg + (elapsed_ms - prev_avg) / total
 
+    app.middlewares.append(auth_middleware)
+    app.middlewares.append(metrics_middleware)
+
+    # Add metrics endpoint for monitoring
+    async def handle_metrics(request: web.Request) -> web.Response:
+        """GET /metrics - Return server performance metrics."""
+        return web.json_response(app["metrics"])
+    
+    app.router.add_get("/metrics", handle_metrics)
     app.router.add_post("/v1/chat/completions", handle_chat_completions)
     app.router.add_get("/v1/models", handle_models)
     app.router.add_get("/health", handle_health)
