@@ -423,8 +423,11 @@ class AgentLoop:
             ("cron", self._cron_turns),
             ("local trigger", self._local_trigger_turns),
         )
-        # NANOBOT_MAX_CONCURRENT_REQUESTS: <=0 means unlimited; default 3.
-        _max = int(os.environ.get("NANOBOT_MAX_CONCURRENT_REQUESTS", "3"))
+        # NANOBOT_MAX_CONCURRENT_REQUESTS: Controls global concurrency limit for agent turns.
+        # For 1000+ concurrent users, set this to 50-100 depending on your hardware.
+        # <=0 means unlimited (not recommended for production).
+        # Default increased from 3 to 50 for better scalability.
+        _max = int(os.environ.get("NANOBOT_MAX_CONCURRENT_REQUESTS", "50"))
         self._concurrency_gate: asyncio.Semaphore | None = (
             asyncio.Semaphore(_max) if _max > 0 else None
         )
