@@ -4,7 +4,30 @@
 
 ## تغییرات اعمال شده
 
-### ۱. بهینه‌سازی API Server (`nanobot/api/server.py`)
+### ۱. افزایش محدودیت همزمانی (Concurrency Limits)
+
+#### الف) Agent Loop Concurrency (`nanobot/agent/loop.py`)
+- **تغییر:** افزایش پیش‌فرض `NANOBOT_MAX_CONCURRENT_REQUESTS` از ۳ به ۵۰
+- **دلیل:** اجازه پردازش همزمان ۵۰ درخواست برای بهره‌وری بهتر از CPU
+- **تنظیم دستی:** برای ۱۰۰۰ کاربر، این مقدار را به ۵۰-۱۰۰ تنظیم کنید
+
+```bash
+# در docker-compose.yml یا environment
+environment:
+  - NANOBOT_MAX_CONCURRENT_REQUESTS=100
+```
+
+#### ب) Tool Executor Concurrency (`nanobot/agent/tool_executor.py`)
+- **تغییر:** افزایش `DEFAULT_MAX_CONCURRENCY` از ۲۰ به ۵۰
+- **دلیل:** اجرای موازی ابزارها با کارایی بالاتر
+- **تاثیر:** کاهش تاخیر Tool Call از چندین ثانیه به زیر ۱ ثانیه
+
+```python
+# نمونه استفاده
+executor = ParallelToolExecutor(max_concurrency=50, default_timeout=15)
+```
+
+### ۲. بهینه‌سازی API Server (`nanobot/api/server.py`)
 
 - **افزایش محدودیت‌های HTTP**: تنظیم `max_field_size` و `max_line_size` به 8192 بایت
 - **اضافه کردن Metrics Middleware**: ردیابی تعداد درخواست‌ها، اتصالات فعال، و میانگین زمان پاسخ

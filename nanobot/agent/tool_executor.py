@@ -70,10 +70,15 @@ class ParallelToolExecutor:
     - Timeout handling: Enforces timeouts on individual tool executions
     - Result caching: Caches deterministic tool results for reuse
     - Error isolation: One failing tool doesn't block others
+    
+    For 1000+ concurrent users, consider:
+    - Increasing DEFAULT_MAX_CONCURRENCY to 50-100 based on CPU cores
+    - Tuning CACHE_TTL based on your tool idempotency
+    - Monitoring semaphore contention via metrics
     """
     
     DEFAULT_TIMEOUT = 15.0  # seconds
-    DEFAULT_MAX_CONCURRENCY = 20
+    DEFAULT_MAX_CONCURRENCY = 50  # Increased from 20 for better scalability
     CACHE_TTL = 300.0  # 5 minutes default
     
     def __init__(
