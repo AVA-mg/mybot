@@ -1,59 +1,19 @@
-```gitignore
-# Python
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
-*.py~
-*.pyc~
-*.pyo~
-*.pyd~
+# Database initialization script specific to local environment
+scripts/init-db.sql.bak
+scripts/*.sql~
 
-# Virtual environments
-venv/
-.venv/
-env/
-.ENV/
-
-# Dependencies
-pip-wheel-metadata/
-.tox/
-.coverage
-coverage/
-htmlcov/
-
-# Build artifacts
-build/
-dist/
-*.egg
-*.egg-info/
-.installed.cfg
-*.egg-info/
-
-# Logs
+# If there are temporary files created during DB init
+*.tmp
 *.log
 
-# OS generated files
-.DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
-Thumbs.db
+# Environment-specific database configs
+.env.db
+.env.local
 
-# Editor files
+# IDE files
 .vscode/
 .idea/
-*.swp
-*.swo
-*~
-```
 
-Wait, I need to reconsider. The only modified file is `nanobot/worker/main.py`, which is a Python source file. There are no build artifacts, dependency directories, or temporary files in the changes list. According to rule 6, if the change list contains only source or config files and no build artifacts, dependencies, or temp files, I should output an empty .gitignore.
-
-Since only a Python source file was modified, and no artifacts or temporary files were included in the changes, the output should be empty.
-
-```gitignore
-
-```
+# OS files
+.DS_Store
+Thumbs.db
