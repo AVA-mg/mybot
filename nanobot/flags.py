@@ -29,17 +29,17 @@ from typing import Any
 # All flags default to False for safe progressive rollouts
 FEATURE_FLAGS: dict[str, bool] = {
     # Phase 1: Async Core + Tool Execution
-    "async_tools": False,           # Enable async tool execution
-    "parallel_tools": False,        # Enable parallel tool call execution
-    "redis_sessions": False,        # Use Redis for session storage
-    "tool_deduplication": False,    # Prevent duplicate tool calls in same turn
-    "tool_timeout": False,          # Enforce timeouts on tool execution
-    "streaming_progress": False,    # Stream tool execution progress to users
+    "async_tools": True,           # Enable async tool execution
+    "parallel_tools": True,        # Enable parallel tool call execution
+    "redis_sessions": True,        # Use Redis for session storage
+    "tool_deduplication": True,    # Prevent duplicate tool calls in same turn
+    "tool_timeout": True,          # Enforce timeouts on tool execution
+    "streaming_progress": True,    # Stream tool execution progress to users
     
     # Phase 2: Distributed Systems
-    "distributed_locks": False,     # Use Redis distributed locks
-    "gateway_worker_split": False,  # Separate gateway and worker processes
-    "rate_limiting": False,         # Enable rate limiting per user/session
+    "distributed_locks": True,     # Use Redis distributed locks
+    "gateway_worker_split": True,  # Separate gateway and worker processes
+    "rate_limiting": True,         # Enable rate limiting per user/session
     "circuit_breaker_tools": False, # Circuit breaker for failing tools
     
     # Phase 3: Provider Optimization
@@ -50,7 +50,7 @@ FEATURE_FLAGS: dict[str, bool] = {
     
     # Phase 4: Resilience & Monitoring
     "circuit_breakers": False,      # Global circuit breakers
-    "health_checks": False,         # Enhanced health check endpoints
+    "health_checks": True,          # Enhanced health check endpoints
     "metrics_export": False,        # Export metrics to monitoring systems
     "structured_logging": False,    # JSON-formatted structured logging
     
