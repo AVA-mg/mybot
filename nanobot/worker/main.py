@@ -206,7 +206,7 @@ class Worker:
         from nanobot.agent.loop import AgentLoop
         from nanobot.agent.tool_executor import ParallelToolExecutor
         from nanobot.config.schema import Config
-        from nanobot.providers.factory import create_provider
+        from nanobot.providers.factory import make_provider
         
         logger.info(f"Running actual agent for session {msg.session_key}")
         
@@ -222,7 +222,7 @@ class Worker:
             config = Config.load()  # Load from environment/config file
             
             # 3. Create LLM provider
-            provider = create_provider(config.provider)
+            provider = make_provider(config)
             
             # 4. Initialize AgentLoop with distributed session store
             agent = AgentLoop(
@@ -317,20 +317,27 @@ class Worker:
         if tool_calls and agent.tools:
             logger.info(f"Executing {len(tool_calls)} tool calls in parallel")
             
-            # Convert tool calls to format expected by ParallelToolExecutor
+            # Convert tool calls to ToolCallRequest objects expected by ParallelToolExecutor
+            from nanobot.providers.base import ToolCallRequest
+            import json
+            
             tool_call_requests = [
-                {
-                    "id": tc.id,
-                    "function": {
-                        "name": tc.function.name,
-                        "arguments": tc.function.arguments,
-                    },
-                }
+                ToolCallRequest(
+                    id=tc.id,
+                    name=tc.function.name,
+                    arguments=json.loads(tc.function.arguments) 
+                              if isinstance(tc.function.arguments, str) 
+                              else tc.function.arguments,
+                )
                 for tc in tool_calls
             ]
             
+            # Create adapter function that converts ToolCallRequest to registry.execute format
+            async def execute_tool_adapter(call: ToolCallRequest) -> Any:
+                return await agent.tools.execute(call.name, call.arguments)
+            
             # Execute tools in parallel with deduplication and timeout handling
-            results = await tool_executor.execute_batch(tool_call_requests, agent.tools.execute)
+            results = await tool_executor.execute_batch(tool_call_requests, execute_tool_adapter)
             
             # Build tool result messages
             tool_messages = []
@@ -351,7 +358,7 @@ class Worker:
                         "type": "function",
                         "function": {
                             "name": tc.function.name,
-                            "arguments": tc.function.arguments,
+                            "arguments": tc.function.arguments if isinstance(tc.function.arguments, str) else json.dumps(tc.function.arguments),
                         },
                     }
                     for tc in tool_calls
