@@ -1,1 +1,6 @@
-Nothing should be ignored based on the provided file changes. The modification of 'nanobot/worker/main.py' is a source code file and does not require any new ignore rules.
+```
+# Environment variables
+.env
+.env.local
+.env.*
+```
